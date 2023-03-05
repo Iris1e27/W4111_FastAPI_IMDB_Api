@@ -5,7 +5,7 @@
 # Use pydantic to define models and transfer objects.
 from typing import List, Union
 from pydantic import BaseModel
-
+# from nameparser import HumanName
 
 # All resources implement a common base interface. This simplifies using
 # resources in some scenarios.
@@ -33,9 +33,8 @@ class Artist(BaseModel):
     # middle_name: Union[str, None] = None
     # last_name: str = None
     # suffix: Union[str, None] = None
-    #   nickname: Union[str, None] = None
+    # nickname: Union[str, None] = None
     # full_name: str = None
-
     # birth_year: str = None
     # death_year: str = None
 
@@ -44,7 +43,6 @@ class Artist(BaseModel):
     deathYear: Union[str, None] = None
 
     class Config:
-
         # The sample response for OpenAPI docs.
         #
         schema_extra = {
@@ -177,16 +175,16 @@ class ArtistResource(BaseResource):
         # Need to convert to a single element.
         #
         if result:
-            # result = result[0]
+            result = result[0]
             tmp = dict()
             tmp["data"] = result
 
             # This is pretty lazy and could be handled by config information.
             #
             tmp["links"] = [
-                #{"rel": "primaryProfessions", "href": "/api/artists/" + key + "/primaryProfession"},
-                #{"rel": "knownForTitles", "href": "/api/artists/" + key + "/knownForTitles"},
-                #{"rel": "self", "href": "/api/artists/" + key}
+                {"rel": "primaryProfessions", "href": "/api/artists/" + result["nconst"] + "/primaryProfession"},
+                {"rel": "knownForTitles", "href": "/api/artists/" + result["nconst"] + "/knownForTitles"},
+                {"rel": "self", "href": "/api/artists/" + result["nconst"]}
             ]
 
             # Create the response model from the dictionary.
@@ -194,3 +192,56 @@ class ArtistResource(BaseResource):
 
         return result
 
+    def delete(self, primaryName=None, birthYear=None, deathYear=None):
+
+        result = None
+
+        ds = self.context['data_service']
+
+        predicate = dict()
+
+        if primaryName:
+            predicate['primaryName'] = primaryName
+        if birthYear:
+            if (birthYear < '1900') or (birthYear > '2023'):
+                raise ValueError("Bad birthYear")
+
+            predicate['birthYear'] = birthYear
+        if deathYear:
+            predicate['deathYear'] = deathYear
+
+        result = ds.delete(self.database, self.collection, predicate)
+
+        return result
+
+    def update(self, primaryName=None, birthYear=None, deathYear=None, newValues=None):
+
+        result = None
+
+        ds = self.context['data_service']
+
+        predicate = dict()
+
+        if primaryName:
+            predicate['primaryName'] = primaryName
+        if birthYear:
+            if (birthYear < '1900') or (birthYear > '2023'):
+                raise ValueError("Bad birthYear")
+
+            predicate['birthYear'] = birthYear
+        if deathYear:
+            predicate['deathYear'] = deathYear
+
+        result = ds.update(self.database, self.collection, predicate, newValues)
+
+        return result
+
+    def post(self, newValues=None):
+
+        result = None
+
+        ds = self.context['data_service']
+
+        result = ds.create(self.database, self.collection, newValues)
+
+        return result

@@ -135,6 +135,23 @@ class MySQLDataService(BaseDataService):
         return result
 
     @staticmethod
+    def build_insert(database, collection, col_names, new_values):
+        """
+
+        Build an insert statement.
+
+        :param database: The MySQL database to query.
+        :param collection: The table in the database.
+        :param col_names: The list of column names.
+        :param new_values: The list of new values.
+        :return: A parameterized select statement and the args for the statement.
+        """
+        sql = "insert into " + database + "." + collection + "(" + ", ".join(col_names) + ") values "
+        sql += "(\"" + "\", \"".join(new_values) + "\")"
+
+        return sql
+
+    @staticmethod
     def predicate_to_where_clause_args(predicate):
         """
 
@@ -207,6 +224,11 @@ class MySQLDataService(BaseDataService):
                 where k1=v1 and k2=v2 and k3=v3.
         :return: A parameterized select statement and the args for the statement.
         """
+        wc, args = MySQLDataService.predicate_to_where_clause_args(predicate)
+
+        sql = "delete from " + database + "." + collection + wc
+
+        return sql, args
 
     @staticmethod
     def build_update(database, collection, predicate, new_values):
@@ -219,9 +241,14 @@ class MySQLDataService(BaseDataService):
         :param predicate: A dictionary of key value pairs.
             A dictionary of the form {k1: v1, k2: v2, k3: v3} result in a where clause of the form
                 where k1=v1 and k2=v2 and k3=v3.
-        :param The values to set in the rows.
+        :param new_values: The values to set in the rows.
         :return: A parameterized select statement and the args for the statement.
         """
+        wc, args = MySQLDataService.predicate_to_where_clause_args(predicate)
+
+        sql = "update " + database + "." + collection + " set " + new_values + wc
+
+        return sql, args
 
     def retrieve(self, database, collection, predicate, project):
         """
@@ -266,8 +293,13 @@ class MySQLDataService(BaseDataService):
         :param predicate: A dictionary of the form {k, v}. A entity matches if the resource's property v has
             value k, for all entries in the dictionary. That is, a match if logically
             k1 = v1 AND k2 = v2 AND ... ...
-        :return: A list containing dictionaries of the projected properties for matching entities.
+        :return: The number of rows affected.
         """
+        conn = self.get_connection()
+
+        sql, args = self.build_delete(database, collection, predicate)
+        result = self.run_q(sql, args, None)
+        return result
 
     def update(self, database, collection, predicate, new_data):
         """
@@ -281,6 +313,15 @@ class MySQLDataService(BaseDataService):
         :param new_data: The keys and values used to form the set statement in SQL.
         :return: A list containing dictionaries of the projected properties for matching entities.
         """
+        conn = self.get_connection()
+
+        new_values = []
+        for k, v in new_data.items():
+            new_values.append(k + "=" + "\"" + v + "\"")
+
+        sql, args = self.build_update(database, collection, predicate, ", ".join(new_values))
+        result = self.run_q(sql, args, None)
+        return result
 
     def create(self, database, collection, new_data):
         """
@@ -291,6 +332,12 @@ class MySQLDataService(BaseDataService):
         :param new_data: The data to insert into the table.
         :return: A list containing dictionaries of the projected properties for matching entities.
         """
+        conn = self.get_connection()
+
+        sql = self.build_insert(database, collection, new_data.keys(), new_data.values())
+        result = self.run_q(sql, None, None, True)
+        print("result: "+str(result))
+        return result
 
 
 
